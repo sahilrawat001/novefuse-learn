@@ -73,32 +73,46 @@ export async function ensureDatabaseSchema(client: PrismaClient): Promise<void> 
     if (!tableCheck || tableCheck.length === 0) {
       console.log('🔄 PostgreSQL connected, but tables not found. Automatically initializing schema...');
 
-      let sqlToExecute = INIT_SQL_FALLBACK;
-      const initSqlPath = path.resolve(process.cwd(), 'prisma/init.sql');
-      if (fs.existsSync(initSqlPath)) {
-        try {
-          sqlToExecute = fs.readFileSync(initSqlPath, 'utf8');
-        } catch {
-          // fallback to INIT_SQL_FALLBACK
-        }
+      let pushed = false;
+      try {
+        const { execSync } = await import('child_process');
+        execSync('npx prisma db push --skip-generate --accept-data-loss', { stdio: 'inherit' });
+        pushed = true;
+        console.log('✅ Prisma db push synchronized schema successfully.');
+      } catch (pushErr: any) {
+        console.warn('⚠️  Prisma db push note:', pushErr.message);
       }
 
-      const statements = sqlToExecute
-        .split(';')
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0 && !s.startsWith('--'));
-
-      for (const stmt of statements) {
-        if (stmt) {
+      if (!pushed) {
+        let sqlToExecute = INIT_SQL_FALLBACK;
+        const initSqlPath = path.resolve(process.cwd(), 'prisma/init.sql');
+        if (fs.existsSync(initSqlPath)) {
           try {
-            await client.$executeRawUnsafe(stmt);
-          } catch (stmtErr: any) {
-            console.warn('⚠️ Statement execution note:', stmtErr.message);
+            sqlToExecute = fs.readFileSync(initSqlPath, 'utf8');
+          } catch {
+            // fallback to INIT_SQL_FALLBACK
+          }
+        }
+
+        // Clean out single-line comments properly so CREATE TABLE statements are never dropped
+        const cleanSql = sqlToExecute.replace(/--.*$/gm, '');
+        const statements = cleanSql
+          .split(';')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+
+        for (const stmt of statements) {
+          if (stmt) {
+            try {
+              await client.$executeRawUnsafe(stmt);
+            } catch (stmtErr: any) {
+              console.warn('⚠️ Statement execution note:', stmtErr.message);
+            }
           }
         }
       }
 
-      console.log('✅ PostgreSQL schema initialized successfully.');
+      console.log('✅ PostgreSQL schema initialization sequence finished.');
     } else {
       console.log('✅ PostgreSQL schema verified (students table present).');
     }
@@ -117,8 +131,20 @@ export async function checkDbConnection(): Promise<boolean> {
     const client = getPrisma();
     await client.$queryRaw`SELECT 1`;
     await ensureDatabaseSchema(client);
-    isDbConnected = true;
-    return true;
+
+    // Verify students table actually exists before marking database ready
+    const tableCheck = await client.$queryRaw<any[]>`
+      SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'students'
+    `;
+    if (tableCheck && tableCheck.length > 0) {
+      isDbConnected = true;
+      console.log('🚀 Database verified ready with all tables.');
+      return true;
+    } else {
+      console.warn('⚠️ Database connected but tables missing. Seamlessly falling back to local file storage.');
+      isDbConnected = false;
+      return false;
+    }
   } catch (err: any) {
     isDbConnected = false;
     console.warn('⚠️  Database connection could not be established:', err.message);
