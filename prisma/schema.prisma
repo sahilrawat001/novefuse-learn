@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Student {
+  id            String          @id @default(uuid()) @db.Uuid
+  email         String          @unique
+  password_hash String
+  name          String?
+  created_at    DateTime?       @default(now()) @db.Timestamptz(6)
+
+  studyMaterials StudyMaterial[]
+  sessions       Session[]
+  topicResults   TopicResult[]
+
+  @@map("students")
+}
+
+model StudyMaterial {
+  id         String    @id @default(uuid()) @db.Uuid
+  student_id String    @db.Uuid
+  mode       String    // 'revision' | 'interview'
+  title      String
+  content    String
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  student    Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  sessions   Session[]
+
+  @@map("study_material")
+}
+
+model Session {
+  id                    String        @id @default(uuid()) @db.Uuid
+  student_id            String        @db.Uuid
+  study_material_id     String?       @db.Uuid
+  mode                  String        // 'revision' | 'interview'
+  started_at            DateTime?     @default(now()) @db.Timestamptz(6)
+  ended_at              DateTime?     @db.Timestamptz(6)
+  raw_transcript        String?
+  summary_json          Json?
+  api_cost_estimate_usd Decimal?      @db.Decimal(10, 4)
+
+  student               Student       @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  studyMaterial         StudyMaterial? @relation(fields: [study_material_id], references: [id])
+  topicResults          TopicResult[]
+
+  @@index([student_id, started_at(sort: Desc)], map: "idx_sessions_student")
+  @@map("sessions")
+}
+
+model TopicResult {
+  id         String    @id @default(uuid()) @db.Uuid
+  session_id String    @db.Uuid
+  student_id String    @db.Uuid
+  topic      String
+  status     String    // 'strong' | 'partial' | 'weak'
+  notes      String?
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  session    Session   @relation(fields: [session_id], references: [id], onDelete: Cascade)
+  student    Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@index([student_id, topic], map: "idx_topic_results_student")
+  @@map("topic_results")
+}
