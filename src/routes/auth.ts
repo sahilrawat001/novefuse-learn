@@ -33,25 +33,31 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    let studentId: string;
+    let studentId: string | null = null;
     let studentName = name?.trim() || null;
 
     if (isDatabaseReady()) {
-      const prisma = getPrisma();
-      const existing = await prisma.student.findUnique({ where: { email: studentEmail } });
-      if (existing) {
-        return res.status(409).json({ error: 'Email already registered' });
-      }
+      try {
+        const prisma = getPrisma();
+        const existing = await prisma.student.findUnique({ where: { email: studentEmail } });
+        if (existing) {
+          return res.status(409).json({ error: 'Email already registered' });
+        }
 
-      const created = await prisma.student.create({
-        data: {
-          email: studentEmail,
-          password_hash: passwordHash,
-          name: studentName,
-        },
-      });
-      studentId = created.id;
-    } else {
+        const created = await prisma.student.create({
+          data: {
+            email: studentEmail,
+            password_hash: passwordHash,
+            name: studentName,
+          },
+        });
+        studentId = created.id;
+      } catch (dbErr: any) {
+        console.warn('[Auth] Database error during signup, falling back to storage:', dbErr.message);
+      }
+    }
+
+    if (!studentId) {
       // Check persistent file storage
       const existing = FileStorage.getStudentByEmail(studentEmail);
       if (existing) {
@@ -111,9 +117,15 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     let userRecord: { id: string; email: string; password_hash: string; name?: string | null } | null = null;
 
     if (isDatabaseReady()) {
-      const prisma = getPrisma();
-      userRecord = await prisma.student.findUnique({ where: { email: studentEmail } });
-    } else {
+      try {
+        const prisma = getPrisma();
+        userRecord = await prisma.student.findUnique({ where: { email: studentEmail } });
+      } catch (dbErr: any) {
+        console.warn('[Auth] Database error during login, falling back to storage:', dbErr.message);
+      }
+    }
+
+    if (!userRecord) {
       userRecord = FileStorage.getStudentByEmail(studentEmail) || null;
       if (!userRecord) {
         for (const s of inMemoryStudents.values()) {
