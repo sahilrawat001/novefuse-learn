@@ -8,7 +8,7 @@
     "dev:client": "npm --prefix client run dev",
     "dev": "concurrently -k \"npm run dev:server\" \"npm run dev:client\"",
     "build:server": "tsc",
-    "build:client": "npm --prefix client run build",
+    "build:client": "npm --prefix client install --include=dev && npm --prefix client run build",
     "build": "npm run build:server && npm run build:client",
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
@@ -16,16 +16,6 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
-    "bcrypt": "^5.1.1",
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "jsonwebtoken": "^9.0.2",
-    "uuid": "^11.0.5",
-    "ws": "^8.18.0"
-  },
-  "devDependencies": {
     "@types/bcrypt": "^5.0.2",
     "@types/cookie-parser": "^1.4.8",
     "@types/cors": "^2.8.17",
@@ -34,9 +24,19 @@
     "@types/node": "^20.17.19",
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.5.14",
-    "concurrently": "^9.1.2",
+    "bcrypt": "^5.1.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
     "prisma": "^5.22.0",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "uuid": "^11.0.5",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "tsx": "^4.19.2"
   }
 }
