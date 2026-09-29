@@ -4,8 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { Radio, ArrowRight, AlertCircle } from 'lucide-react';
 
 export const Signup: React.FC = () => {
-  const [name, setName] = useState('Sahil Rawat');
-  const [email, setEmail] = useState('sahilrawat680@gmail.com');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -18,8 +18,8 @@ export const Signup: React.FC = () => {
     setError(null);
 
     const cleanEmail = email.toLowerCase().trim();
-    if (cleanEmail !== 'sahilrawat680@gmail.com') {
-      setError('Access restricted: Only sahilrawat680@gmail.com is authorized to register.');
+    if (!cleanEmail) {
+      setError('Please enter a valid email address.');
       return;
     }
 
@@ -48,10 +48,6 @@ export const Signup: React.FC = () => {
           <p className="text-xs text-slate-400 mt-1">
             Start retaining knowledge through spoken conversation
           </p>
-          <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px] font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-            <span>Pilot Access: sahilrawat680@gmail.com</span>
-          </div>
         </div>
 
         {error && (

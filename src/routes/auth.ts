@@ -24,13 +24,6 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
 
     const studentEmail = email.toLowerCase().trim();
 
-    // Check authorization whitelist
-    if (studentEmail !== AUTHORIZED_EMAIL) {
-      return res.status(403).json({
-        error: `Access restricted: Only ${AUTHORIZED_EMAIL} is authorized to register.`,
-      });
-    }
-
     const passwordHash = await bcrypt.hash(password, 10);
 
     let studentId: string | null = null;
@@ -41,7 +34,7 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
         const prisma = getPrisma();
         const existing = await prisma.student.findUnique({ where: { email: studentEmail } });
         if (existing) {
-          return res.status(409).json({ error: 'Email already registered' });
+          return res.status(409).json({ error: 'Email already registered. Please sign in.' });
         }
 
         const created = await prisma.student.create({
@@ -61,7 +54,7 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
       // Check persistent file storage
       const existing = FileStorage.getStudentByEmail(studentEmail);
       if (existing) {
-        return res.status(409).json({ error: 'Email already registered' });
+        return res.status(409).json({ error: 'Email already registered. Please sign in.' });
       }
       studentId = crypto.randomUUID();
       const newStudent = {
@@ -107,13 +100,6 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
     const studentEmail = email.toLowerCase().trim();
 
-    // Check authorization whitelist
-    if (studentEmail !== AUTHORIZED_EMAIL) {
-      return res.status(403).json({
-        error: `Access restricted: Only ${AUTHORIZED_EMAIL} is authorized to sign in.`,
-      });
-    }
-
     let userRecord: { id: string; email: string; password_hash: string; name?: string | null } | null = null;
 
     if (isDatabaseReady()) {
@@ -137,8 +123,8 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       }
     }
 
-    // Auto-provision authorized pilot user if record does not exist yet
-    if (!userRecord) {
+    // Auto-provision pilot user if not exists yet
+    if (!userRecord && studentEmail === AUTHORIZED_EMAIL) {
       const passwordHash = await bcrypt.hash(password, 10);
       const studentName = 'Sahil Rawat';
       const studentId = crypto.randomUUID();
@@ -176,11 +162,15 @@ authRouter.post('/login', async (req: Request, res: Response) => {
         FileStorage.saveStudent(studentItem);
         userRecord = studentItem;
       }
-    } else {
-      const isValid = await bcrypt.compare(password, userRecord.password_hash);
-      if (!isValid) {
-        return res.status(401).json({ error: 'Invalid email or password' });
-      }
+    }
+
+    if (!userRecord) {
+      return res.status(401).json({ error: 'Invalid email or password. Please check your credentials or sign up.' });
+    }
+
+    const isValid = await bcrypt.compare(password, userRecord.password_hash);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     const token = jwt.sign(
